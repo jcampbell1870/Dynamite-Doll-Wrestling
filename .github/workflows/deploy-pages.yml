@@ -33,8 +33,10 @@ jobs:
 
       - name: Assemble GitHub Pages site
         run: |
-          mkdir -p _site/downloads
+          mkdir -p _site/downloads _site/js
           cp docs/index.html _site/index.html
+          cp docs/play.html _site/play.html
+          cp wwwroot/js/wrestling-renderer.js _site/js/wrestling-renderer.js
           cat > publish/appsettings.Production.json <<'EOF'
           {
             "ConnectionStrings": {
