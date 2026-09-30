@@ -35,6 +35,13 @@ jobs:
         run: |
           mkdir -p _site/downloads
           cp docs/index.html _site/index.html
+          cat > publish/appsettings.Production.json <<'EOF'
+          {
+            "ConnectionStrings": {
+              "DefaultConnection": ""
+            }
+          }
+          EOF
           cat > publish/README.txt <<'EOF'
           Dynamite Doll Wrestling for Windows (x64)
 
