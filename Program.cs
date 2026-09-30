@@ -117,29 +117,42 @@ app.MapGet(
         }
     });
 
-app.MapPost(
-    "/api/reward-claim",
-    (RewardClaimIssueRequest request, IRewardClaimIssuerService rewardClaimIssuerService) =>
+// Both routes are served by the same handler so the two entry points can never drift apart.
+async Task<IResult> IssueRewardClaim(
+    RewardClaimIssueRequest request,
+    IRewardClaimIssuerService rewardClaimIssuerService,
+    GameDbContext dbContext)
+{
+    // A claim is only ever signed for a match that actually exists, has finished, has not
+    // already been paid out, and was played by the wallet asking to be paid.
+    if (request.Game is null || !int.TryParse(request.Game.GameId, out var sessionId))
     {
-        if (!rewardClaimIssuerService.TryCreateClaim(request, out var payload, out var error))
-        {
-            return Results.BadRequest(new { error });
-        }
+        return Results.BadRequest(new { error = "A completed match id is required." });
+    }
 
-        return Results.Json(payload);
-    });
+    var session = await dbContext.MatchSessions
+        .AsNoTracking()
+        .FirstOrDefaultAsync(matchSession => matchSession.Id == sessionId);
 
-app.MapPost(
-    "/reward-claim",
-    (RewardClaimIssueRequest request, IRewardClaimIssuerService rewardClaimIssuerService) =>
+    if (session is null
+        || session.EndedAt == default
+        || session.RewardClaimed
+        || string.IsNullOrWhiteSpace(request.Recipient)
+        || !string.Equals(session.PlayerAddress, request.Recipient, StringComparison.OrdinalIgnoreCase))
     {
-        if (!rewardClaimIssuerService.TryCreateClaim(request, out var payload, out var error))
-        {
-            return Results.BadRequest(new { error });
-        }
+        return Results.BadRequest(new { error = "This reward claim is no longer available." });
+    }
 
-        return Results.Json(payload);
-    });
+    if (!rewardClaimIssuerService.TryCreateClaim(request, out var payload, out var error))
+    {
+        return Results.BadRequest(new { error });
+    }
+
+    return Results.Json(payload);
+}
+
+app.MapPost("/api/reward-claim", IssueRewardClaim);
+app.MapPost("/reward-claim", IssueRewardClaim);
 
 using (var scope = app.Services.CreateScope())
 {

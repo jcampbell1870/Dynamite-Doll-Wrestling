@@ -2,7 +2,9 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Dynamite_Doll_Wrestling.Models;
 using Microsoft.Extensions.Options;
+using System.Numerics;
 using Nethereum.Contracts.Standards.ERC20.ContractDefinition;
+using Nethereum.Util;
 using Nethereum.Web3;
 
 namespace Dynamite_Doll_Wrestling.Services;
@@ -182,11 +184,13 @@ public class BlockchainService : IBlockchainService
             var balanceOfFunctionMessage = new BalanceOfFunction { Owner = walletAddress };
             var handler = web3.Eth.GetContractQueryHandler<BalanceOfFunction>();
 
-            var balance = await handler.QueryAsync<decimal>(
+            // balanceOf returns a uint256, which can easily exceed decimal's range for an
+            // 18 decimal token, so it is read as a BigInteger and scaled down afterwards.
+            var balance = await handler.QueryAsync<BigInteger>(
                 _config.Arcade1870ContractAddress,
                 balanceOfFunctionMessage);
 
-            return balance;
+            return UnitConversion.Convert.FromWei(balance, _config.RewardTokenDecimals);
         }
         catch (Exception ex)
         {

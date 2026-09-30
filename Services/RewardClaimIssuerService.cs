@@ -42,10 +42,13 @@ public class RewardClaimIssuerService : IRewardClaimIssuerService
     private static readonly byte[] VersionHash =
         new Sha3Keccack().CalculateHash("1").HexToByteArray();
 
+    private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(5);
+
     private readonly BlockchainConfig _config;
     private readonly ILogger<RewardClaimIssuerService> _logger;
     private readonly ConcurrentDictionary<string, Lazy<IssuedRewardClaim>> _issuedClaims = new();
     private long _nonceCounter;
+    private long _lastSweepTicks = DateTimeOffset.UtcNow.UtcTicks;
 
     public RewardClaimIssuerService(
         IOptions<BlockchainConfig> config,
@@ -112,6 +115,7 @@ public class RewardClaimIssuerService : IRewardClaimIssuerService
         var now = DateTimeOffset.UtcNow;
 
         TryRemoveExpiredClaim(normalizedGameId, now);
+        SweepExpiredClaims(now);
 
         try
         {
@@ -147,6 +151,32 @@ public class RewardClaimIssuerService : IRewardClaimIssuerService
             && issuedClaim.Value.ExpiresAt <= now)
         {
             _issuedClaims.TryRemove(normalizedGameId, out _);
+        }
+    }
+
+    /// <summary>
+    /// Periodically drops every expired claim so the memo table cannot grow without bound
+    /// for the lifetime of this singleton.
+    /// </summary>
+    private void SweepExpiredClaims(DateTimeOffset now)
+    {
+        var lastSweep = Interlocked.Read(ref _lastSweepTicks);
+        if (now.UtcTicks - lastSweep < SweepInterval.Ticks)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _lastSweepTicks, now.UtcTicks, lastSweep) != lastSweep)
+        {
+            return;
+        }
+
+        foreach (var entry in _issuedClaims)
+        {
+            if (entry.Value.IsValueCreated && entry.Value.Value.ExpiresAt <= now)
+            {
+                _issuedClaims.TryRemove(entry.Key, out _);
+            }
         }
     }
 

@@ -38,11 +38,11 @@ and go to **Match**.
 
 | Key | Action |
 |---|---|
-| Left / Right arrow (or `A` / `D`) | Walk around the ring |
-| `Z` | Strike - fast, chips the health meter |
-| `X` | Grapple - slower, real damage, builds momentum |
-| `C` | Signature move - needs a full momentum meter |
-| `Space` | Go for the cover |
+| Left / Right arrow | Walk around the ring |
+| `A` or `Space` | Strike - fast, chips the health meter |
+| `S` | Grapple - slower, real damage, builds momentum |
+| `D` | Signature move - needs a full momentum meter |
+| `F` | Go for the cover |
 | Any action key while being covered | Mash to kick out |
 
 Moves only connect when you are close enough to your opponent, and a cover will

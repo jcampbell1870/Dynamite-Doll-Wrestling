@@ -285,10 +285,10 @@ public class MatchService : IMatchService
         var encoder = new FunctionCallEncoder();
         var parameters = new[]
         {
-            new Parameter("uint256", 1),
-            new Parameter("uint256", 2),
-            new Parameter("uint256", 3),
-            new Parameter("bytes", 4)
+            new Parameter("uint256", "amount", 1),
+            new Parameter("uint256", "nonce", 2),
+            new Parameter("uint256", "deadline", 3),
+            new Parameter("bytes", "signature", 4)
         };
 
         return encoder.EncodeRequest(

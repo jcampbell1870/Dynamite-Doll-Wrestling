@@ -52,6 +52,9 @@ public class MatchEngine : IMatchEngine
     public const int FallsToWin = 2;
     private const float PinThreshold = 18f;
     private const float PinCountSeconds = 3f;
+
+    /// <summary>Movement is resolved against a fixed 60 FPS step so it matches the renderer.</summary>
+    private const float FixedStepSeconds = 1f / 60f;
     private const float MoveRange = 70f;
     private const float PlayerSpeed = 150f;
     private const float RingPadding = 60f;
@@ -94,7 +97,7 @@ public class MatchEngine : IMatchEngine
         }
 
         var speed = PlayerSpeed * (0.75f + _playerWrestler.Speed / 20f);
-        _state.PlayerX = Clamp(_state.PlayerX + Math.Sign(direction) * speed * 0.016f, RingPadding, RingWidth - RingPadding);
+        _state.PlayerX = Clamp(_state.PlayerX + Math.Sign(direction) * speed * FixedStepSeconds, RingPadding, RingWidth - RingPadding);
     }
 
     public void PerformPlayerAction(MatchAction action)
