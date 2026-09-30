@@ -1,0 +1,16 @@
+@page "/roster"
+@using Dynamite_Doll_Wrestling.Models
+@using Dynamite_Doll_Wrestling.Services
+@inject IRosterService RosterService
+
+<PageTitle>Dynamite Doll Wrestling - Roster</PageTitle>
+
+<h1 class="ddw-marquee">Roster</h1>
+<p>Eight competitors. One Dynamite Doll.</p>
+
+<div class="roster-grid">
+    @foreach (var wrestler in RosterService.GetRoster().OrderByDescending(w => w.Overall))
+    {
+        <WrestlerCard Wrestler="wrestler" ShowBio="true" />
+    }
+</div>

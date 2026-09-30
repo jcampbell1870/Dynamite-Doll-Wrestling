@@ -1,0 +1,533 @@
+@page "/match"
+@page "/match/autoconnect"
+@using Dynamite_Doll_Wrestling.Models
+@using Dynamite_Doll_Wrestling.Services
+@using Microsoft.AspNetCore.WebUtilities
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>Dynamite Doll Wrestling - Match</PageTitle>
+
+<div class="match-container">
+    <div class="match-sidebar">
+        <WalletConnection @ref="walletComponent" @bind-WalletState="currentWalletState" />
+
+        <div class="ddw-panel">
+            <h4>Career Stats</h4>
+            @if (currentWalletState.IsConnected && playerProfile is not null)
+            {
+                <div class="stats-info">
+                    <p>Matches: @playerProfile.TotalMatches</p>
+                    <p>Wins: @playerProfile.TotalWins</p>
+                    <p>Losses: @playerProfile.TotalLosses</p>
+                    <p>Win rate: @playerProfile.WinRate.ToString("F1")%</p>
+                    <p>Rewards: @playerProfile.TotalRewardsEarned.ToString("F2") A1870</p>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">Connect a wallet to see your record.</p>
+            }
+        </div>
+
+        <div class="ddw-panel">
+            <h4>Match Settings</h4>
+
+            @if (!string.IsNullOrWhiteSpace(matchErrorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @matchErrorMessage
+                    @if (!string.IsNullOrWhiteSpace(rewardDiagnosticHint))
+                    {
+                        <div class="mt-2 small"><strong>Debug hint:</strong> @rewardDiagnosticHint</div>
+                    }
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(rewardWarningMessage))
+            {
+                <div class="alert alert-warning" role="alert">@rewardWarningMessage</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(rewardStatusMessage))
+            {
+                <div class="alert @(rewardClaimed ? "alert-success" : "alert-info")" role="status" aria-live="polite">
+                    @rewardStatusMessage
+                    @if (rewardClaimed && !string.IsNullOrWhiteSpace(rewardTransactionHash))
+                    {
+                        <div class="mt-2 small">
+                            Transaction:
+                            @if (!string.IsNullOrWhiteSpace(rewardExplorerUrl))
+                            {
+                                <a href="@rewardExplorerUrl" target="_blank" rel="noopener noreferrer">@rewardTransactionHash</a>
+                            }
+                            else
+                            {
+                                <code>@rewardTransactionHash</code>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="form-group mb-2">
+                <label for="difficulty">Difficulty</label>
+                <select id="difficulty" class="form-control" @bind="selectedDifficulty" disabled="@matchRunning">
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
+                </select>
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="opponent">Opponent</label>
+                <select id="opponent" class="form-control" @bind="selectedOpponentId" disabled="@matchRunning">
+                    @foreach (var wrestler in SelectableOpponents)
+                    {
+                        <option value="@wrestler.Id">@wrestler.Name ("@wrestler.Nickname")</option>
+                    }
+                </select>
+            </div>
+
+            @if (!matchRunning && !matchOver)
+            {
+                <button class="btn btn-success w-100" @onclick="StartMatch" disabled="@(!currentWalletState.IsConnected)">
+                    @(matchPaused ? "Resume Match" : "Start Match")
+                </button>
+            }
+            else if (matchRunning)
+            {
+                <button class="btn btn-warning w-100" @onclick="PauseMatch">Pause Match</button>
+            }
+
+            @if (matchOver)
+            {
+                <button class="btn btn-primary w-100" @onclick="ResetMatch">Run It Back</button>
+                @if (!rewardClaimed && !rewardClaimInProgress)
+                {
+                    <button class="btn btn-info w-100 mt-2" @onclick="RetryRewardClaim">Retry Reward Payout</button>
+                }
+            }
+        </div>
+
+        <div class="ddw-panel">
+            <h4>Controls</h4>
+            <ul class="ddw-controls-legend">
+                <li>&larr; / &rarr; &mdash; move</li>
+                <li>A or Space &mdash; strike</li>
+                <li>S &mdash; grapple</li>
+                <li>D &mdash; signature finisher</li>
+                <li>F &mdash; cover for the pin</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="match-area">
+        <div class="ddw-panel">
+            <h4>@PlayerWrestler.Name vs @OpponentWrestler.Name</h4>
+            <div class="mb-2 small">Falls: @playerFalls - @opponentFalls (best of 3)</div>
+            <canvas @ref="canvasRef" width="800" height="460" class="match-canvas"></canvas>
+        </div>
+
+        <div class="ddw-panel">
+            <h4>Choose your wrestler</h4>
+            <div class="roster-grid">
+                @foreach (var wrestler in Roster)
+                {
+                    <WrestlerCard Wrestler="wrestler"
+                                  IsSelected="@(wrestler.Id == selectedPlayerId)"
+                                  OnSelect="SelectPlayerWrestler" />
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ElementReference canvasRef;
+    private WalletConnection? walletComponent;
+    private WalletConnectionState currentWalletState = new();
+    private PlayerProfile? playerProfile;
+
+    private bool matchRunning;
+    private bool matchPaused;
+    private bool matchOver;
+    private bool rewardClaimed;
+    private bool rewardClaimInProgress;
+    private int playerFalls;
+    private int opponentFalls;
+    private string selectedDifficulty = "Medium";
+    private string selectedPlayerId = Services.RosterService.HeadlinerId;
+    private string selectedOpponentId = string.Empty;
+    private int? currentSessionId;
+    private string? matchErrorMessage;
+    private string? rewardWarningMessage;
+    private string? rewardStatusMessage;
+    private string? rewardDiagnosticHint;
+    private string? rewardTransactionHash;
+    private string? rewardExplorerUrl;
+
+    private DotNetObjectReference<Match>? matchCallbacksRef;
+    private int activeMatchToken;
+    private int matchCompletionInProgressFlag;
+
+    [Inject] private IMatchService MatchService { get; set; } = null!;
+    [Inject] private IRosterService RosterService { get; set; } = null!;
+    [Inject] private IWalletService WalletService { get; set; } = null!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = null!;
+    [Inject] private ILogger<Match> Logger { get; set; } = null!;
+
+    private IReadOnlyList<Wrestler> Roster => RosterService.GetRoster();
+
+    private IEnumerable<Wrestler> SelectableOpponents =>
+        Roster.Where(w => !string.Equals(w.Id, selectedPlayerId, StringComparison.OrdinalIgnoreCase));
+
+    private Wrestler PlayerWrestler => RosterService.GetByIdOrDefault(selectedPlayerId);
+
+    private Wrestler OpponentWrestler => RosterService.GetByIdOrDefault(selectedOpponentId);
+
+    protected override void OnInitialized()
+    {
+        selectedOpponentId = SelectableOpponents.First().Id;
+    }
+
+    private bool AutoConnectWallet
+    {
+        get
+        {
+            var currentUri = new Uri(NavigationManager.Uri);
+
+            if (string.Equals(currentUri.AbsolutePath, "/match/autoconnect", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var query = QueryHelpers.ParseQuery(currentUri.Query);
+            if (!query.TryGetValue("autoconnect", out var values))
+            {
+                return false;
+            }
+
+            var value = values.Count > 0 ? values[0] : null;
+            return string.IsNullOrWhiteSpace(value)
+                   || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(value, "1", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            matchCallbacksRef = DotNetObjectReference.Create(this);
+
+            if (AutoConnectWallet && walletComponent is not null && !currentWalletState.IsConnected)
+            {
+                await walletComponent.ConnectForLaunchAsync();
+            }
+        }
+    }
+
+    private void SelectPlayerWrestler(Wrestler wrestler)
+    {
+        if (matchRunning)
+        {
+            return;
+        }
+
+        selectedPlayerId = wrestler.Id;
+
+        if (string.Equals(selectedOpponentId, selectedPlayerId, StringComparison.OrdinalIgnoreCase))
+        {
+            selectedOpponentId = SelectableOpponents.First().Id;
+        }
+    }
+
+    private async Task StartMatch()
+    {
+        if (!currentWalletState.IsConnected || string.IsNullOrEmpty(currentWalletState.Address) || matchRunning)
+        {
+            return;
+        }
+
+        if (matchPaused && currentSessionId.HasValue)
+        {
+            matchRunning = true;
+            matchPaused = false;
+            await JSRuntime.InvokeVoidAsync("window.wrestlingRenderer.resumeMatch", canvasRef);
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            matchErrorMessage = null;
+            rewardWarningMessage = null;
+            rewardDiagnosticHint = null;
+
+            playerProfile = await MatchService.GetOrCreatePlayerAsync(currentWalletState.Address);
+
+            var session = await MatchService.CreateMatchSessionAsync(
+                currentWalletState.Address,
+                PlayerWrestler.Id,
+                OpponentWrestler.Id,
+                selectedDifficulty);
+
+            currentSessionId = session.Id;
+
+            activeMatchToken++;
+            matchRunning = true;
+            matchPaused = false;
+            matchOver = false;
+            rewardClaimed = false;
+            rewardClaimInProgress = false;
+            playerFalls = 0;
+            opponentFalls = 0;
+            rewardStatusMessage = null;
+            rewardTransactionHash = null;
+            rewardExplorerUrl = null;
+
+            await JSRuntime.InvokeVoidAsync(
+                "window.wrestlingRenderer.startMatch",
+                canvasRef,
+                selectedDifficulty,
+                PlayerWrestler,
+                OpponentWrestler,
+                matchCallbacksRef,
+                activeMatchToken);
+        }
+        catch (Exception ex)
+        {
+            matchRunning = false;
+            matchPaused = false;
+            currentSessionId = null;
+            activeMatchToken++;
+            matchErrorMessage = "Unable to start the match right now. Please try again in a moment.";
+            Logger.LogError(ex, "Error starting match for wallet {WalletAddress}", currentWalletState.Address);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task PauseMatch()
+    {
+        matchRunning = false;
+        matchPaused = !matchOver;
+        await JSRuntime.InvokeVoidAsync("window.wrestlingRenderer.pauseMatch", canvasRef);
+        StateHasChanged();
+    }
+
+    private async Task ResetMatch()
+    {
+        await JSRuntime.InvokeVoidAsync("window.wrestlingRenderer.resetMatch", canvasRef);
+        matchOver = false;
+        matchPaused = false;
+        matchRunning = false;
+        rewardClaimed = false;
+        rewardClaimInProgress = false;
+        playerFalls = 0;
+        opponentFalls = 0;
+        currentSessionId = null;
+        matchErrorMessage = null;
+        rewardWarningMessage = null;
+        rewardStatusMessage = null;
+        rewardDiagnosticHint = null;
+        rewardTransactionHash = null;
+        rewardExplorerUrl = null;
+        activeMatchToken++;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task OnMatchScoreChanged(int latestPlayerFalls, int latestOpponentFalls, int matchToken)
+    {
+        if (matchToken != activeMatchToken)
+        {
+            return Task.CompletedTask;
+        }
+
+        playerFalls = latestPlayerFalls;
+        opponentFalls = latestOpponentFalls;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnMatchCompleted(int finalPlayerFalls, int finalOpponentFalls, int matchToken)
+    {
+        if (matchToken != activeMatchToken)
+        {
+            return;
+        }
+
+        if (Interlocked.Exchange(ref matchCompletionInProgressFlag, 1) == 1)
+        {
+            return;
+        }
+
+        matchRunning = false;
+        matchPaused = false;
+        matchOver = true;
+        playerFalls = finalPlayerFalls;
+        opponentFalls = finalOpponentFalls;
+
+        try
+        {
+            if (currentSessionId.HasValue)
+            {
+                await MatchService.EndMatchSessionAsync(currentSessionId.Value, playerFalls, opponentFalls);
+                await ClaimRewardAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            matchErrorMessage = "We couldn't finalize this match. Please try another bout in a moment.";
+            Logger.LogError(ex, "Error finalizing match completion for session {SessionId}", currentSessionId);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref matchCompletionInProgressFlag, 0);
+            activeMatchToken++;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task RetryRewardClaim() => ClaimRewardAsync();
+
+    private async Task ClaimRewardAsync()
+    {
+        if (!currentSessionId.HasValue
+            || rewardClaimed
+            || rewardClaimInProgress
+            || string.IsNullOrWhiteSpace(currentWalletState.Address))
+        {
+            return;
+        }
+
+        try
+        {
+            rewardClaimInProgress = true;
+            matchErrorMessage = null;
+            rewardWarningMessage = null;
+            rewardDiagnosticHint = null;
+            rewardStatusMessage = "Preparing your Arcade1870 reward claim...";
+            rewardTransactionHash = null;
+            rewardExplorerUrl = null;
+            await InvokeAsync(StateHasChanged);
+
+            var preparedClaim = await MatchService.PrepareRewardClaimAsync(
+                currentSessionId.Value,
+                currentWalletState.Address!);
+
+            if (!preparedClaim.IsSuccessful || preparedClaim.Transaction is null)
+            {
+                rewardStatusMessage = null;
+                matchErrorMessage = preparedClaim.ErrorMessage
+                                    ?? "Reward payout could not be prepared right now. You can retry below.";
+                rewardDiagnosticHint = preparedClaim.DiagnosticHint;
+                return;
+            }
+
+            rewardStatusMessage = "Confirm the reward claim in MetaMask to receive your A1870 tokens.";
+            await InvokeAsync(StateHasChanged);
+
+            var walletResult = await WalletService.SubmitRewardClaimAsync(preparedClaim.Transaction);
+            if (walletResult.IsSuccessful && !string.IsNullOrWhiteSpace(walletResult.TransactionHash))
+            {
+                var completed = await MatchService.CompleteRewardClaimAsync(
+                    currentSessionId.Value,
+                    currentWalletState.Address!,
+                    walletResult.TransactionHash);
+
+                if (completed)
+                {
+                    rewardClaimed = true;
+                    rewardStatusMessage = "Reward claim submitted.";
+                    rewardTransactionHash = walletResult.TransactionHash;
+                    rewardExplorerUrl = BuildExplorerTransactionUrl(
+                        preparedClaim.Transaction.ChainId,
+                        walletResult.TransactionHash);
+
+                    playerProfile = await MatchService.GetOrCreatePlayerAsync(currentWalletState.Address!);
+                }
+                else
+                {
+                    rewardStatusMessage = null;
+                    matchErrorMessage = "Reward transaction was submitted, but the game could not record it. "
+                                        + "Please contact support with the transaction hash.";
+                    Logger.LogError(
+                        "Reward claim transaction {TransactionHash} submitted for match {SessionId} but completion could not be recorded.",
+                        walletResult.TransactionHash,
+                        currentSessionId);
+                }
+            }
+            else
+            {
+                rewardStatusMessage = null;
+                var walletError = string.IsNullOrWhiteSpace(walletResult.ErrorMessage)
+                    ? "Reward payout could not be completed right now. You can retry below."
+                    : walletResult.ErrorMessage;
+
+                if (string.Equals(walletResult.ErrorCode, "LOW_GAS", StringComparison.Ordinal))
+                {
+                    rewardWarningMessage = walletError;
+                    matchErrorMessage = null;
+                }
+                else
+                {
+                    rewardWarningMessage = null;
+                    matchErrorMessage = walletError;
+                }
+
+                rewardTransactionHash = null;
+                rewardExplorerUrl = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            rewardStatusMessage = null;
+            matchErrorMessage = "Reward payout failed. Please try again shortly.";
+            rewardWarningMessage = null;
+            rewardDiagnosticHint = null;
+            rewardTransactionHash = null;
+            rewardExplorerUrl = null;
+            Logger.LogError(ex, "Error claiming reward for match {SessionId}", currentSessionId);
+        }
+        finally
+        {
+            rewardClaimInProgress = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static string? BuildExplorerTransactionUrl(int chainId, string transactionHash)
+    {
+        if (string.IsNullOrWhiteSpace(transactionHash))
+        {
+            return null;
+        }
+
+        var baseUrl = chainId switch
+        {
+            1 => "https://etherscan.io/tx/",
+            11155111 => "https://sepolia.etherscan.io/tx/",
+            137 => "https://polygonscan.com/tx/",
+            _ => null
+        };
+
+        return baseUrl is null ? null : $"{baseUrl}{transactionHash}";
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.wrestlingRenderer.disposeMatch", canvasRef);
+        }
+        catch
+        {
+            // Best effort cleanup; the circuit may already be gone.
+        }
+
+        matchCallbacksRef?.Dispose();
+    }
+}
