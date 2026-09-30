@@ -1,0 +1,67 @@
+@page "/leaderboard"
+@using Dynamite_Doll_Wrestling.Services
+@using Dynamite_Doll_Wrestling.Models
+@inject IMatchService MatchService
+
+<PageTitle>Dynamite Doll Wrestling - Leaderboard</PageTitle>
+
+<h1 class="ddw-marquee">Leaderboard</h1>
+
+@if (leaders is null)
+{
+    <p>Loading standings...</p>
+}
+else if (leaders.Count == 0)
+{
+    <p>No bouts on record yet. Be the first to take a fall off the Dynamite Doll.</p>
+}
+else
+{
+    <table class="table table-dark table-striped leaderboard-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Wallet</th>
+                <th>Matches</th>
+                <th>Wins</th>
+                <th>Losses</th>
+                <th>Win rate</th>
+                <th>A1870 earned</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (var index = 0; index < leaders.Count; index++)
+            {
+                var leader = leaders[index];
+                <tr>
+                    <td>@(index + 1)</td>
+                    <td>@FormatAddress(leader.WalletAddress)</td>
+                    <td>@leader.TotalMatches</td>
+                    <td>@leader.TotalWins</td>
+                    <td>@leader.TotalLosses</td>
+                    <td>@leader.WinRate.ToString("F1")%</td>
+                    <td>@leader.TotalRewardsEarned.ToString("F2")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<PlayerProfile>? leaders;
+
+    protected override async Task OnInitializedAsync()
+    {
+        leaders = await MatchService.GetLeaderboardAsync(25);
+    }
+
+    private static string FormatAddress(string? address)
+    {
+        if (string.IsNullOrEmpty(address) || address.Length < 10)
+        {
+            return address ?? string.Empty;
+        }
+
+        return $"{address[..6]}...{address[^4..]}";
+    }
+}

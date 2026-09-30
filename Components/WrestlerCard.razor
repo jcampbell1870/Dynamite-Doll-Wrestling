@@ -1,0 +1,35 @@
+@using Dynamite_Doll_Wrestling.Models
+
+<button type="button"
+        class="roster-card @(IsSelected ? "selected" : null) @(Wrestler.IsHeadliner ? "headliner" : null)"
+        @onclick="OnSelected">
+    <div class="ring-name">@Wrestler.Name</div>
+    <div class="nickname">"@Wrestler.Nickname"</div>
+    <div class="small mb-2">@Wrestler.Hometown</div>
+    <div class="rating-row"><span>POWER</span><span>@Wrestler.Power</span></div>
+    <div class="rating-row"><span>SPEED</span><span>@Wrestler.Speed</span></div>
+    <div class="rating-row"><span>TECHNIQUE</span><span>@Wrestler.Technique</span></div>
+    <div class="rating-row"><span>STAMINA</span><span>@Wrestler.Stamina</span></div>
+    <div class="rating-row"><strong>OVERALL</strong><strong>@Wrestler.Overall</strong></div>
+    <div class="small mt-2">Finisher: @Wrestler.SignatureMove</div>
+    @if (ShowBio)
+    {
+        <p class="small mt-2 mb-0">@Wrestler.Bio</p>
+    }
+</button>
+
+@code {
+    [Parameter, EditorRequired]
+    public Wrestler Wrestler { get; set; } = new();
+
+    [Parameter]
+    public bool IsSelected { get; set; }
+
+    [Parameter]
+    public bool ShowBio { get; set; }
+
+    [Parameter]
+    public EventCallback<Wrestler> OnSelect { get; set; }
+
+    private Task OnSelected() => OnSelect.InvokeAsync(Wrestler);
+}

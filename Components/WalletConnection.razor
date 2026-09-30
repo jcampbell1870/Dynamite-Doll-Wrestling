@@ -1,0 +1,196 @@
+@using Dynamite_Doll_Wrestling.Models
+@using Dynamite_Doll_Wrestling.Services
+@inject IWalletService WalletService
+@inject IJSRuntime JSRuntime
+
+<div class="wallet-card">
+    <div class="wallet-header">
+        <h3>Wallet Connection</h3>
+    </div>
+
+    @if (!WalletState.IsConnected)
+    {
+        <div class="wallet-disconnected">
+            <p>Connect your MetaMask wallet to wrestle and earn Arcade1870 (A1870) rewards.</p>
+            <button class="btn btn-primary" @onclick="ConnectWallet">
+                Connect MetaMask
+            </button>
+            @if (hasCheckedEnvironment && !metaMaskInstalled)
+            {
+                <p class="warning-text">
+                    MetaMask was not detected in this browser.
+                    @if (isMobileDevice)
+                    {
+                        <span> Open this card in the MetaMask app browser.</span>
+                    }
+                    else
+                    {
+                        <span> <a href="https://metamask.io" target="_blank" rel="noopener noreferrer">Install MetaMask</a> and reload.</span>
+                    }
+                </p>
+
+                @if (isMobileDevice)
+                {
+                    <button class="btn btn-outline-info mt-2" @onclick="OpenInMetaMaskApp">
+                        Open in MetaMask App
+                    </button>
+                    @if (isInAppBrowser)
+                    {
+                        <p class="warning-text mt-2">
+                            In-app browsers often block wallet injection. Opening this game in MetaMask should fix the connection.
+                        </p>
+                    }
+                }
+            }
+        </div>
+    }
+    else
+    {
+        <div class="wallet-connected">
+            <div class="wallet-info">
+                <div class="info-row">
+                    <span class="label">Address:</span>
+                    <span class="address">@FormatAddress(WalletState.Address)</span>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="CopyAddress" title="Copy address">Copy</button>
+                </div>
+                <div class="info-row">
+                    <span class="label">Network:</span>
+                    <span class="network">@WalletState.ChainName</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Balance:</span>
+                    <span class="balance">@WalletState.Balance.ToString("F4") @NativeTokenSymbol(WalletState.ChainId)</span>
+                </div>
+            </div>
+
+            <div class="wallet-actions">
+                <button class="btn btn-secondary btn-sm" @onclick="SwitchNetwork">Switch Network</button>
+                <button class="btn btn-danger btn-sm" @onclick="DisconnectWallet">Disconnect</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool metaMaskInstalled;
+    private bool isMobileDevice;
+    private bool isInAppBrowser;
+    private bool isMetaMaskAppBrowser;
+    private bool hasCheckedEnvironment;
+
+    [Parameter]
+    public EventCallback<WalletConnectionState> OnWalletConnected { get; set; }
+
+    [Parameter]
+    public WalletConnectionState WalletState { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<WalletConnectionState> WalletStateChanged { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await RefreshWalletEnvironmentAsync();
+            await PublishWalletStateAsync();
+            StateHasChanged();
+        }
+    }
+
+    public Task ConnectForLaunchAsync() => ConnectWalletInternalAsync();
+
+    private Task ConnectWallet() => ConnectWalletInternalAsync();
+
+    private async Task<bool> ConnectWalletInternalAsync()
+    {
+        await RefreshWalletEnvironmentAsync();
+
+        if (isMobileDevice && (isInAppBrowser || (!metaMaskInstalled && !isMetaMaskAppBrowser)))
+        {
+            await OpenInMetaMaskApp();
+            return false;
+        }
+
+        WalletState = await WalletService.ConnectWalletAsync();
+        await PublishWalletStateAsync();
+        StateHasChanged();
+        return WalletState.IsConnected;
+    }
+
+    private async Task OpenInMetaMaskApp()
+    {
+        await JSRuntime.InvokeAsync<bool>("window.metamaskInterop.openInMetaMask");
+    }
+
+    private async Task RefreshWalletEnvironmentAsync()
+    {
+        try
+        {
+            metaMaskInstalled = await JSRuntime.InvokeAsync<bool>("window.metamaskInterop.isMetaMaskInstalled");
+            isMobileDevice = await JSRuntime.InvokeAsync<bool>("window.metamaskInterop.isMobileDevice");
+            isInAppBrowser = await JSRuntime.InvokeAsync<bool>("window.metamaskInterop.isInAppBrowser");
+            isMetaMaskAppBrowser = await JSRuntime.InvokeAsync<bool>("window.metamaskInterop.isMetaMaskAppBrowser");
+            WalletState = await WalletService.GetWalletStateAsync();
+        }
+        catch
+        {
+            metaMaskInstalled = false;
+            isMobileDevice = false;
+            isInAppBrowser = false;
+            isMetaMaskAppBrowser = false;
+        }
+
+        hasCheckedEnvironment = true;
+    }
+
+    private async Task DisconnectWallet()
+    {
+        await WalletService.DisconnectWalletAsync();
+        WalletState = new WalletConnectionState { IsConnected = false };
+        await PublishWalletStateAsync();
+        StateHasChanged();
+    }
+
+    private async Task SwitchNetwork()
+    {
+        var success = await WalletService.SwitchNetworkAsync(11155111);
+        if (success)
+        {
+            WalletState = await WalletService.GetWalletStateAsync();
+            await PublishWalletStateAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyAddress()
+    {
+        if (!string.IsNullOrEmpty(WalletState.Address))
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", WalletState.Address);
+        }
+    }
+
+    private static string FormatAddress(string? address)
+    {
+        if (string.IsNullOrEmpty(address) || address.Length < 10)
+        {
+            return address ?? string.Empty;
+        }
+
+        return $"{address[..6]}...{address[^4..]}";
+    }
+
+    private static string NativeTokenSymbol(int chainId) => chainId switch
+    {
+        1 => "ETH",
+        11155111 => "Sepolia ETH",
+        137 => "POL",
+        _ => string.Empty
+    };
+
+    private async Task PublishWalletStateAsync()
+    {
+        await WalletStateChanged.InvokeAsync(WalletState);
+        await OnWalletConnected.InvokeAsync(WalletState);
+    }
+}
