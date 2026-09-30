@@ -34,6 +34,12 @@ dotnet run
 Then open the URL printed in the console (for example `https://localhost:7229`)
 and go to **Match**.
 
+## Play in the browser (Chromebook friendly)
+
+A browser edition is published on [GitHub Pages](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/play.html). It runs entirely in the browser, so it works on Chromebooks and needs no install. Use the keyboard or the on-screen buttons. MetaMask rewards are not available in the browser edition.
+
+GitHub Pages must be enabled for the repository: go to **Settings → Pages** and set **Source** to **GitHub Actions**. Then re-run the *Deploy downloadable game to GitHub Pages* workflow.
+
 ## Download for Windows
 
 A self-contained Windows x64 download is published through [GitHub Pages](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/). Extract the ZIP, run `Dynamite_Doll_Wrestling.exe`, then open `http://localhost:5000` in a browser. Keep the console window open while playing. This download does not include a configured reward issuer, so MetaMask reward claims are unavailable.
