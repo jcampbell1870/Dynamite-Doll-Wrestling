@@ -242,7 +242,8 @@ public class BlockchainService : IBlockchainService
             return false;
         }
 
-        if (!decimal.TryParse(payload.Amount, out var amount) || amount <= 0)
+        // The amount is a uint256 in base token units, which can exceed decimal's range.
+        if (!BigInteger.TryParse(payload.Amount, out var amount) || amount <= BigInteger.Zero)
         {
             error = "Reward claim payload contains an invalid amount.";
             return false;

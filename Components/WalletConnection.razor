@@ -59,7 +59,7 @@
                 </div>
                 <div class="info-row">
                     <span class="label">Balance:</span>
-                    <span class="balance">@WalletState.Balance.ToString("F4") ETH</span>
+                    <span class="balance">@WalletState.Balance.ToString("F4") @NativeTokenSymbol(WalletState.ChainId)</span>
                 </div>
             </div>
 
@@ -179,6 +179,14 @@
 
         return $"{address[..6]}...{address[^4..]}";
     }
+
+    private static string NativeTokenSymbol(int chainId) => chainId switch
+    {
+        1 => "ETH",
+        11155111 => "Sepolia ETH",
+        137 => "POL",
+        _ => string.Empty
+    };
 
     private async Task PublishWalletStateAsync()
     {

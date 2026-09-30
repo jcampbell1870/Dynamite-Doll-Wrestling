@@ -1,3 +1,4 @@
+using System.Text;
 using Dynamite_Doll_Wrestling.Components;
 using Dynamite_Doll_Wrestling.Data;
 using Dynamite_Doll_Wrestling.Models;
@@ -92,20 +93,38 @@ app.MapGet(
 
         try
         {
+            var config = blockchainOptions.Value;
+            var signerConfigured = !string.IsNullOrWhiteSpace(config.RewardSignerPrivateKey);
+            var vaultConfigured = !string.IsNullOrWhiteSpace(config.RewardVaultAddress);
+
             var client = httpClientFactory.CreateClient();
             var issuerUri = issuerUris[0];
-            using var request = new HttpRequestMessage(HttpMethod.Get, issuerUri);
+
+            // The issuer only accepts POST, so probe it the way the game does. An empty body is
+            // rejected before anything is signed, which proves the route exists and is reachable.
+            using var request = new HttpRequestMessage(HttpMethod.Post, issuerUri)
+            {
+                Content = new StringContent("{}", Encoding.UTF8, "application/json")
+            };
+
             using var response = await client.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
 
+            var statusCode = (int)response.StatusCode;
+            var routeReachable = statusCode is not (StatusCodes.Status404NotFound or StatusCodes.Status405MethodNotAllowed);
+            var healthy = routeReachable && statusCode < 500 && signerConfigured && vaultConfigured;
+
             return Results.Json(new
             {
-                status = (int)response.StatusCode >= 500 ? "degraded" : "healthy",
+                status = healthy ? "healthy" : "degraded",
                 issuerUrl = issuerUri.ToString(),
                 configuredIssuerUrl = issuerUrl,
-                statusCode = (int)response.StatusCode
+                statusCode,
+                routeReachable,
+                signerConfigured,
+                vaultConfigured
             });
         }
         catch (Exception ex)
