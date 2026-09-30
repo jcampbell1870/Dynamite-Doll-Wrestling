@@ -34,6 +34,10 @@ dotnet run
 Then open the URL printed in the console (for example `https://localhost:7229`)
 and go to **Match**.
 
+## Download for Windows
+
+A self-contained Windows x64 download is published through [GitHub Pages](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/). Extract the ZIP, run `Dynamite_Doll_Wrestling.exe`, then open `http://localhost:5000` in a browser. Keep the console window open while playing. This download does not include a configured reward issuer, so MetaMask reward claims are unavailable.
+
 ## Controls
 
 | Key | Action |
