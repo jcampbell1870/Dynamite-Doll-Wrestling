@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Download Dynamite Doll Wrestling for Chromebook, Windows, or Windows Ultra Edition.">
+  <meta name="description" content="Download Dynamite Doll Wrestling 3D for Chromebook and Windows PC.">
   <title>Dynamite Doll Wrestling</title>
   <style>
     :root {
@@ -42,32 +42,36 @@
     .download:hover, .download:focus-visible { background: #ff537d; }
     li { margin: 0.5rem 0; }
     .note { color: #cbbcc4; font-size: 0.95rem; }
-  </style>
-</head>
-<body>
+    table { width: 100%; border-coll<body>
   <main>
-    <h1>Dynamite Doll Wrestling</h1>
-    <p>A 2D all-female wrestling game inspired by classic 8-bit wrestling games.</p>
-    <h2>Chromebook download</h2>
+    <h1>Dynamite Doll Wrestling 3D</h1>
+    <p>An all-female 3D wrestling game: eight wrestlers, a fully lit arena with a crowd, titantron, pyro and broadcast-style camera, best-of-three-falls matches, and keyboard, gamepad or touch controls. Both downloads run offline with no account or internet connection.</p>
+
+    <h2>Windows PC (x64)</h2>
+    <a class="download" href="__WINDOWS_DOWNLOAD_URL__">Download for Windows</a>
+    <ol>
+      <li>Extract the downloaded ZIP file to a folder (about 370 MB).</li>
+      <li>Run <code>DynamiteDollWrestling.exe</code>. It opens full screen with Ultra graphics; press F11 or Alt+Enter to switch to a window.</li>
+    </ol>
+    <p class="note">This is a portable desktop app, so there is nothing to install. The app isn't code-signed, so Windows SmartScreen may show "Windows protected your PC". Choose <em>More info</em>, then <em>Run anyway</em>. Graphics quality can be changed in Settings.</p>
+
+    <h2>Chromebook</h2>
     <a class="download" href="downloads/Dynamite-Doll-Wrestling-chromebook.zip">Download for Chromebook</a>
-    <p>Extract the ZIP in the Chromebook Files app, then open <code>index.html</code> in Chrome. This browser edition works offline and needs no installation.</p>
-    <h2>Windows download</h2>
-    <a class="download" href="downloads/Dynamite-Doll-Wrestling-windows-x64.zip">Download for Windows (x64)</a>
-    <p>To play the Windows version:</p>
     <ol>
-      <li>Extract the downloaded ZIP file.</li>
-      <li>Run <code>Dynamite_Doll_Wrestling.exe</code> and keep its console window open.</li>
-      <li>Open <a href="http://localhost:5000">http://localhost:5000</a> in a modern browser.</li>
+      <li>Extract the ZIP in the Chromebook Files app.</li>
+      <li>Open <code>index.html</code> in Chrome.</li>
     </ol>
-    <p class="note">The download is a self-contained Windows app; no .NET SDK installation is required. MetaMask reward claims need a separately configured reward issuer and are not enabled in this download.</p>
-    <h2>Windows Ultra Edition</h2>
-    <a class="download" href="downloads/Dynamite-Doll-Wrestling-windows-ultra.zip">Download Ultra Edition for Windows</a>
-    <p>For high-end PCs and high-refresh-rate 1440p or 4K monitors. Ultra graphics render at your display's native resolution (up to 4K) and full refresh rate, with arena lighting, shadows, particle effects and camera shake.</p>
-    <ol>
-      <li>Extract the downloaded ZIP file.</li>
-      <li>Double-click <code>Play Dynamite Doll Wrestling Ultra.cmd</code> to play full screen in Microsoft Edge, or open <code>index.html</code> in any modern browser.</li>
-    </ol>
-    <p class="note">No installation or internet connection is needed. The game is 2D and does not use DirectX 12 ray tracing. MetaMask rewards are not available in this edition.</p>
+    <p class="note">The Chromebook edition starts on Medium graphics. Choose Low in Settings on older Chromebooks. It also runs in any modern desktop browser.</p>
+
+    <h2>Graphics presets</h2>
+    <table>
+      <tr><th>Preset</th><th>Intended hardware</th><th>What it adds</th></tr>
+      <tr><td>Low</td><td>Older Chromebooks and laptops</td><td>Reduced resolution, smaller crowd, no shadows or bloom</td></tr>
+      <tr><td>Medium</td><td>Chromebooks, integrated graphics</td><td>Soft shadows, bloom, light beams</td></tr>
+      <tr><td>High</td><td>Gaming laptops and desktops</td><td>Native high-DPI resolution, 4&times; MSAA, 2K shadow maps, larger crowd</td></tr>
+      <tr><td>Ultra</td><td>RTX 4090 / 5080 / 5090-class PCs with 1440p or 4K high-refresh monitors</td><td>Internal rendering up to 3840&times;2160 (4K), 4K shadow maps, full crowd, maximum particles; frame rate follows your monitor's refresh rate (120&ndash;240 Hz)</td></tr>
+    </table>
+    <p class="note">Recommended for Ultra: Windows 11 64-bit, a current Intel Core i7/i9 or AMD Ryzen 7/9, 16 GB RAM or more, and a recent NVIDIA or AMD graphics card. The game uses WebGL 2 (Direct3D 11 through ANGLE on Windows) with rasterized shadows and bloom. It does not use DirectX 12 ray tracing.</p>
   </main>
 </body>
 </html>

@@ -37,7 +37,9 @@ function createWindow() {
       event.preventDefault();
     }
   });
-  win.loadFile(path.join(__dirname, 'game', 'index.html'));
+  // Packaged builds bundle the game next to main.cjs; `npm start` runs it from dist/.
+  const gameDir = app.isPackaged ? path.join(__dirname, 'game') : path.join(__dirname, '..', 'dist', 'windows');
+  win.loadFile(path.join(gameDir, 'index.html'));
 }
 
 app.whenReady().then(createWindow);

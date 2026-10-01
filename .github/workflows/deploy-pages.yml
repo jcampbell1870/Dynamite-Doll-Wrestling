@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -19,91 +17,79 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    defaults:
+      run:
+        working-directory: game
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          dotnet-version: 10.0.x
+          node-version: 22
+          cache: npm
+          cache-dependency-path: game/package-lock.json
 
-      - name: Publish self-contained Windows game
-        run: dotnet publish "Dynamite Doll Wrestling.csproj" --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output publish
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Assemble GitHub Pages site
+      - name: Test
+        run: npm test
+
+      - name: Build Chromebook and Windows editions
+        run: npm run package:win
+
+      - name: Read version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Package downloads
         run: |
-          mkdir -p _site/downloads _chromebook/js
-          cp docs/index.html _site/index.html
-          sed 's#<a href="./">Back to downloads</a>#Offline Chromebook edition#' docs/play.html > _chromebook/index.html
-          cp wwwroot/js/wrestling-renderer.js _chromebook/js/wrestling-renderer.js
-          cat > _chromebook/README.txt <<'EOF'
-          Dynamite Doll Wrestling for Chromebook
+          mkdir -p ../_site/downloads ../_release
+          cp ../docs/index.html ../_site/index.html
+          sed -i "s#__WINDOWS_DOWNLOAD_URL__#https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/Dynamite-Doll-Wrestling-windows-x64.zip#" ../_site/index.html
+          ! grep -q '__WINDOWS_DOWNLOAD_URL__' ../_site/index.html
+          cat > dist/chromebook/README.txt <<'EOF'
+          Dynamite Doll Wrestling 3D - Chromebook edition
 
           1. Extract this ZIP file in the Chromebook Files app.
           2. Open index.html in Chrome to play offline.
 
-          The game runs locally in your browser and does not need an installation
-          or internet connection. Keyboard and on-screen controls are available.
-          MetaMask rewards are not available in this browser edition.
+          Graphics start on Medium. Choose Low in Settings on older Chromebooks.
+          Controls: arrow keys move, A/Space strike, S grapple, D signature,
+          F pin, Esc pause. Gamepads and touchscreens are supported.
           EOF
-          (cd _chromebook && zip -qr ../_site/downloads/Dynamite-Doll-Wrestling-chromebook.zip .)
-          mkdir -p _ultra/js
-          sed -e 's#Browser edition &mdash; works on Chromebooks and any modern browser. <a href="./">Back to downloads</a>#Windows Ultra Edition \&mdash; native resolution up to 4K.#' \
-              -e 's#data-default="classic"#data-default="ultra"#' docs/play.html > _ultra/index.html
-          grep -q 'data-default="ultra"' _ultra/index.html
-          grep -q 'Windows Ultra Edition' _ultra/index.html
-          cp wwwroot/js/wrestling-renderer.js _ultra/js/wrestling-renderer.js
-          printf '%s\r\n' \
-            '@echo off' \
-            'rem Opens the Ultra Edition full screen in Microsoft Edge (press F11 to leave full screen).' \
-            'set "EDGE_KEY=SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe"' \
-            'reg query "HKLM\%EDGE_KEY%" >nul 2>&1 || reg query "HKCU\%EDGE_KEY%" >nul 2>&1' \
-            'if errorlevel 1 goto fallback' \
-            'start "" msedge --start-fullscreen "%~dp0index.html"' \
-            'goto :eof' \
-            ':fallback' \
-            'start "" "%~dp0index.html"' \
-            > "_ultra/Play Dynamite Doll Wrestling Ultra.cmd"
-          cat > _ultra/README.txt <<'EOF'
-          Dynamite Doll Wrestling - Windows Ultra Edition
+          (cd dist/chromebook && zip -qr -9 ../../../_site/downloads/Dynamite-Doll-Wrestling-chromebook.zip .)
+          APP_DIR="out/Dynamite Doll Wrestling-win32-x64"
+          test -f "$APP_DIR/DynamiteDollWrestling.exe"
+          cat > "$APP_DIR/README.txt" <<'EOF'
+          Dynamite Doll Wrestling 3D - Windows x64 edition
 
           1. Extract this ZIP file to a folder.
-          2. Double-click "Play Dynamite Doll Wrestling Ultra.cmd" to play full
-             screen in Microsoft Edge, or open index.html in any modern browser.
+          2. Run DynamiteDollWrestling.exe. It opens full screen with Ultra
+             graphics (up to 4K internal resolution). Press F11 or Alt+Enter to
+             toggle full screen and change graphics quality in Settings.
 
-          Ultra graphics render the ring at your display's native resolution (up
-          to 3840x2160 / 4K), at your monitor's full refresh rate, with arena
-          lighting, shadows, particle effects and camera shake. Graphics can be
-          switched back to Classic from the Graphics menu.
+          This is a portable app: nothing is installed. The app is not
+          code-signed, so Windows SmartScreen may ask you to confirm with
+          "More info" > "Run anyway".
 
-          Recommended: Windows 11 64-bit, a high-refresh-rate 1440p or 4K
-          display, and hardware graphics acceleration enabled in the browser.
-          The game is 2D and does not use DirectX 12 ray tracing.
-
-          The game runs locally and does not need an installation or internet
-          connection. MetaMask rewards are not available in this edition.
+          Controls: arrow keys move, A/Space strike, S grapple, D signature,
+          F pin, Esc pause. Xbox and PlayStation controllers are supported.
           EOF
-          (cd _ultra && zip -qr ../_site/downloads/Dynamite-Doll-Wrestling-windows-ultra.zip .)
-          cat > publish/appsettings.Production.json <<'EOF'
-          {
-            "ConnectionStrings": {
-              "DefaultConnection": ""
-            }
-          }
-          EOF
-          cat > publish/README.txt <<'EOF'
-          Dynamite Doll Wrestling for Windows (x64)
+          (cd "$APP_DIR" && zip -qr -9 ../../../_release/Dynamite-Doll-Wrestling-windows-x64.zip .)
+          ls -la ../_site/downloads ../_release
 
-          1. Extract this ZIP file to a folder.
-          2. Run Dynamite_Doll_Wrestling.exe.
-          3. Open http://localhost:5000 in a modern browser.
-
-          The game server runs locally on your computer. Keep its console window
-          open while playing. MetaMask reward claims require a separately
-          configured reward issuer and are not enabled in this download.
-          EOF
-          (cd publish && zip -qr ../_site/downloads/Dynamite-Doll-Wrestling-windows-x64.zip .)
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: _release/Dynamite-Doll-Wrestling-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -115,12 +101,44 @@ jobs:
         with:
           path: _site
 
+  # The Windows app is larger than the 100 MB per-file limit for GitHub Pages,
+  # so it is published as a release asset that the downloads page links to.
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-x64
+
+      - name: Publish Windows release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v${{ needs.build.outputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Dynamite-Doll-Wrestling-windows-x64.zip --clobber
+          else
+            gh release create "$TAG" Dynamite-Doll-Wrestling-windows-x64.zip \
+              --target "$GITHUB_SHA" \
+              --latest \
+              --title "Dynamite Doll Wrestling 3D $TAG" \
+              --notes "Windows x64 desktop edition. Extract the ZIP and run DynamiteDollWrestling.exe. The Chromebook edition is on the GitHub Pages downloads page."
+          fi
+
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, release]
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
