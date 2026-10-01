@@ -48,6 +48,37 @@ jobs:
           MetaMask rewards are not available in this browser edition.
           EOF
           (cd _chromebook && zip -qr ../_site/downloads/Dynamite-Doll-Wrestling-chromebook.zip .)
+          mkdir -p _ultra/js
+          sed -e 's#Browser edition &mdash; works on Chromebooks and any modern browser. <a href="./">Back to downloads</a>#Windows Ultra Edition \&mdash; native resolution up to 4K.#' \
+              -e 's#data-default="classic"#data-default="ultra"#' docs/play.html > _ultra/index.html
+          grep -q 'data-default="ultra"' _ultra/index.html
+          cp wwwroot/js/wrestling-renderer.js _ultra/js/wrestling-renderer.js
+          printf '%s\r\n' \
+            '@echo off' \
+            'rem Opens the Ultra Edition full screen in Microsoft Edge (press F11 to leave full screen).' \
+            'start "" msedge --start-fullscreen "%~dp0index.html"' \
+            'if errorlevel 1 start "" "%~dp0index.html"' \
+            > "_ultra/Play Dynamite Doll Wrestling Ultra.cmd"
+          cat > _ultra/README.txt <<'EOF'
+          Dynamite Doll Wrestling - Windows Ultra Edition
+
+          1. Extract this ZIP file to a folder.
+          2. Double-click "Play Dynamite Doll Wrestling Ultra.cmd" to play full
+             screen in Microsoft Edge, or open index.html in any modern browser.
+
+          Ultra graphics render the ring at your display's native resolution (up
+          to 3840x2160 / 4K), at your monitor's full refresh rate, with arena
+          lighting, shadows, particle effects and camera shake. Graphics can be
+          switched back to Classic from the Graphics menu.
+
+          Recommended: Windows 11 64-bit, a high-refresh-rate 1440p or 4K
+          display, and hardware graphics acceleration enabled in the browser.
+          The game is 2D and does not use DirectX 12 ray tracing.
+
+          The game runs locally and does not need an installation or internet
+          connection. MetaMask rewards are not available in this edition.
+          EOF
+          (cd _ultra && zip -qr ../_site/downloads/Dynamite-Doll-Wrestling-windows-ultra.zip .)
           cat > publish/appsettings.Production.json <<'EOF'
           {
             "ConnectionStrings": {

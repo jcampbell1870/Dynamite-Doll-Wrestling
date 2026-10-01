@@ -44,6 +44,10 @@ The deployment workflow enables GitHub Pages and publishes the downloads when it
 
 A self-contained Windows x64 download is published through [GitHub Pages](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/). Extract the ZIP, run `Dynamite_Doll_Wrestling.exe`, then open `http://localhost:5000` in a browser. Keep the console window open while playing. This download does not include a configured reward issuer, so MetaMask reward claims are unavailable.
 
+## Windows Ultra Edition
+
+The [GitHub Pages download page](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/) also offers a Windows Ultra Edition for high-end PCs. Extract the ZIP and double-click `Play Dynamite Doll Wrestling Ultra.cmd` to play full screen in Microsoft Edge, or open `index.html` in any modern browser. Ultra graphics render at the display's native resolution (up to 4K) and full refresh rate, with arena lighting, shadows, particle effects and camera shake. The game remains 2D and does not use DirectX 12 ray tracing. MetaMask rewards are not available in this edition.
+
 ## Controls
 
 | Key | Action |
