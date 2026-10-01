@@ -52,6 +52,9 @@ jobs:
           cp ../docs/index.html ../_site/index.html
           sed -i "s#__WINDOWS_DOWNLOAD_URL__#https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/Dynamite-Doll-Wrestling-windows-x64.zip#" ../_site/index.html
           ! grep -q '__WINDOWS_DOWNLOAD_URL__' ../_site/index.html
+          grep -q '</style>' ../_site/index.html
+          grep -q '<body>' ../_site/index.html
+          grep -q 'downloads/Dynamite-Doll-Wrestling-chromebook.zip' ../_site/index.html
           cat > dist/chromebook/README.txt <<'EOF'
           Dynamite Doll Wrestling 3D - Chromebook edition
 
