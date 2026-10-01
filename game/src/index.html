@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:">
+  <title>Dynamite Doll Wrestling</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="view" aria-label="Dynamite Doll Wrestling 3D arena"></canvas>
+
+  <div id="loading" class="loading">
+    <div class="logo"><span>DYNAMITE DOLL</span><span>WRESTLING</span></div>
+    <p>Building the arena&hellip;</p>
+  </div>
+
+  <section id="title" class="screen" aria-label="Title screen">
+    <div class="logo big"><span>DYNAMITE DOLL</span><span>WRESTLING</span></div>
+    <p class="tagline">All-female 3D wrestling. Best of three falls.</p>
+    <nav class="menu">
+      <button type="button" data-go="select">Play</button>
+      <button type="button" data-go="settings">Settings</button>
+      <button type="button" data-go="controls">Controls</button>
+      <button type="button" id="quit" hidden>Quit to Desktop</button>
+    </nav>
+    <p class="edition" id="edition"></p>
+  </section>
+
+  <section id="select" class="screen" aria-label="Choose wrestlers">
+    <header class="select-header">
+      <button type="button" class="ghost" data-go="title">&larr; Back</button>
+      <h2 id="select-heading">Choose your wrestler</h2>
+      <label class="difficulty">Difficulty
+        <select id="difficulty">
+          <option>Easy</option>
+          <option selected>Medium</option>
+          <option>Hard</option>
+        </select>
+      </label>
+    </header>
+    <div class="select-body">
+      <div id="roster" class="roster" role="listbox" aria-label="Roster"></div>
+      <aside id="profile" class="profile"></aside>
+    </div>
+    <footer class="select-footer">
+      <div class="matchup" id="matchup"></div>
+      <button type="button" id="confirm-select">Select</button>
+    </footer>
+  </section>
+
+  <section id="settings" class="screen panel-screen" aria-label="Settings">
+    <div class="panel">
+      <h2>Settings</h2>
+      <label>Graphics quality
+        <select id="quality">
+          <option value="low">Low &ndash; Chromebooks and older laptops</option>
+          <option value="medium">Medium &ndash; Chromebooks and integrated graphics</option>
+          <option value="high">High &ndash; gaming laptops and desktops</option>
+          <option value="ultra">Ultra &ndash; 4K internal resolution for high-end GPUs</option>
+        </select>
+      </label>
+      <p class="hint" id="quality-hint"></p>
+      <label class="row"><input type="checkbox" id="show-fps"> Show FPS counter</label>
+      <label class="row"><input type="checkbox" id="camera-shake" checked> Camera shake</label>
+      <label class="row"><input type="checkbox" id="touch-controls"> Always show touch controls</label>
+      <label>Volume <input type="range" id="volume" min="0" max="1" step="0.05" value="0.8"></label>
+      <button type="button" data-back>Done</button>
+    </div>
+  </section>
+
+  <section id="controls" class="screen panel-screen" aria-label="Controls">
+    <div class="panel">
+      <h2>Controls</h2>
+      <table>
+        <thead><tr><th>Action</th><th>Keyboard</th><th>Gamepad</th></tr></thead>
+        <tbody>
+          <tr><td>Move</td><td>Arrow keys</td><td>Left stick / D-pad</td></tr>
+          <tr><td>Strike</td><td>A or Space</td><td>A / Cross</td></tr>
+          <tr><td>Grapple</td><td>S</td><td>X / Square</td></tr>
+          <tr><td>Signature (full momentum)</td><td>D</td><td>Y / Triangle</td></tr>
+          <tr><td>Cover / pin</td><td>F</td><td>B / Circle</td></tr>
+          <tr><td>Kick out of a pin</td><td colspan="2">Mash any action</td></tr>
+          <tr><td>Pause</td><td>Esc or P</td><td>Start / Options</td></tr>
+        </tbody>
+      </table>
+      <p class="hint">Moves only land up close. Grapples knock your opponent down; wear her health down before you go for the cover. First wrestler to two falls wins. On touchscreens, use the on-screen stick and buttons.</p>
+      <button type="button" data-back>Done</button>
+    </div>
+  </section>
+
+  <section id="pause" class="screen panel-screen" aria-label="Paused">
+    <div class="panel">
+      <h2>Paused</h2>
+      <nav class="menu">
+        <button type="button" id="resume">Resume</button>
+        <button type="button" data-go="settings">Settings</button>
+        <button type="button" data-go="controls">Controls</button>
+        <button type="button" id="restart">Restart Match</button>
+        <button type="button" id="quit-match">Quit to Title</button>
+      </nav>
+    </div>
+  </section>
+
+  <section id="results" class="screen panel-screen" aria-label="Results">
+    <div class="panel">
+      <h2 id="results-heading">Winner</h2>
+      <p id="results-sub" class="tagline"></p>
+      <dl id="results-stats" class="stats"></dl>
+      <nav class="menu">
+        <button type="button" id="rematch">Rematch</button>
+        <button type="button" data-go="select">Change Wrestlers</button>
+        <button type="button" data-go="title">Title Screen</button>
+      </nav>
+    </div>
+  </section>
+
+  <div id="hud" class="hud" hidden>
+    <div class="bars">
+      <div class="side left">
+        <div class="name" id="p-name"></div>
+        <div class="meter health"><div id="p-health"></div></div>
+        <div class="meter momentum"><div id="p-momentum"></div></div>
+        <div class="falls" id="p-falls"></div>
+      </div>
+      <div class="center">
+        <div class="best">BEST OF 3</div>
+        <div class="sig" id="sig-ready">SIGNATURE READY &ndash; D / Y</div>
+      </div>
+      <div class="side right">
+        <div class="name" id="o-name"></div>
+        <div class="meter health"><div id="o-health"></div></div>
+        <div class="falls" id="o-falls"></div>
+      </div>
+    </div>
+    <div class="count" id="count"></div>
+    <div class="mash" id="mash">MASH TO KICK OUT!<div class="meter"><div id="mash-bar"></div></div></div>
+    <div class="callout" id="callout"></div>
+    <div class="intro-card" id="intro-card"></div>
+    <button type="button" class="pause-button" id="pause-button" aria-label="Pause">II</button>
+  </div>
+
+  <div id="touch" class="touch" hidden>
+    <div class="stick" id="stick"><div class="knob"></div></div>
+    <div class="actions">
+      <button type="button" data-action="strike">Strike</button>
+      <button type="button" data-action="grapple">Grapple</button>
+      <button type="button" data-action="signature">Signature</button>
+      <button type="button" data-action="pin">Pin</button>
+    </div>
+  </div>
+
+  <div id="fps" class="fps" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+  <div id="error" class="error" hidden></div>
+
+  <script src="game.js"></script>
+</body>
+</html>

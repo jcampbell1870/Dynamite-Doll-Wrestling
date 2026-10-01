@@ -7,6 +7,8 @@
     <RootNamespace>Dynamite_Doll_Wrestling</RootNamespace>
     <AssemblyName>$(AssemblyName.Replace(' ', '_'))</AssemblyName>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- The standalone 3D game in game/ is a separate Node.js project. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);game/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

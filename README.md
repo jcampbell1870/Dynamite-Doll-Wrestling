@@ -5,6 +5,9 @@ Nintendo Entertainment System classic *WWF WrestleMania Challenge*: chunky pixel
 sprites, a side-on ring, best-of-three falls, and a three count that you have to
 mash your way out of.
 
+A standalone **3D edition** for Windows PC and Chromebook is also available. See
+[Dynamite Doll Wrestling 3D](#dynamite-doll-wrestling-3d-downloads).
+
 The headliner is **Bronwyne "Dynamite Doll" Billington**, daughter of 1980s WWF
 tag team champion Tom "Dynamite Kid" Billington of the British Bulldogs. She is
 the highest rated competitor on the roster.
@@ -34,26 +37,62 @@ dotnet run
 Then open the URL printed in the console (for example `https://localhost:7229`)
 and go to **Match**.
 
-## Chromebook download
+## Dynamite Doll Wrestling 3D (downloads)
 
-For offline play, download the Chromebook ZIP from the [GitHub Pages download page](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/), extract it in the Chromebook Files app, and open `index.html` in Chrome.
+The `game/` folder contains a standalone 3D edition built with
+[three.js](https://threejs.org/) and WebGL 2. It has jointed, procedurally
+animated wrestlers; PBR materials; soft shadows; bloom; a lit arena with a
+crowd, titantron, LED boards, moving lights and pyro; a broadcast-style
+director camera; synthesized arena audio; and keyboard, gamepad and touch
+controls. Download it from the
+[GitHub Pages download page](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/):
 
-The deployment workflow enables GitHub Pages and publishes the downloads when it runs on `main` or `master`.
+- **Windows PC (x64):** a portable desktop app. Extract the ZIP and run
+  `DynamiteDollWrestling.exe`. It starts full screen with Ultra graphics, which
+  render internally at up to 3840×2160. The ZIP is over GitHub Pages' 100 MB file
+  limit, so it is attached to the latest
+  [GitHub release](https://github.com/jcampbell1870/Dynamite-Doll-Wrestling/releases/latest)
+  and the download page links there.
+- **Chromebook:** extract the ZIP in the Files app and open `index.html` in
+  Chrome. Starts on Medium graphics and runs offline.
 
-## Download for Windows
+Graphics presets range from Low (older Chromebooks) to Ultra (RTX 4090 / 5080 /
+5090-class PCs on 1440p or 4K high-refresh monitors). The game renders with
+WebGL 2 (Direct3D 11 through ANGLE on Windows) using shadow maps and bloom. It
+does not use DirectX 12 ray tracing. MetaMask rewards are only available in the
+.NET web version above.
 
-A self-contained Windows x64 download is published through [GitHub Pages](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/). Extract the ZIP, run `Dynamite_Doll_Wrestling.exe`, then open `http://localhost:5000` in a browser. Keep the console window open while playing. This download does not include a configured reward issuer, so MetaMask reward claims are unavailable.
+Building it locally needs Node.js 22:
+
+```bash
+cd game
+npm ci
+npm test               # match rules unit tests
+npm run build          # dist/chromebook and dist/windows
+npm start              # run the Windows edition in Electron
+npm run package:win    # portable Windows x64 app in out/
+```
+
+The `Deploy downloadable game to GitHub Pages` workflow runs on `main` or
+`master`. It tests and builds the game, publishes the Chromebook ZIP and the
+downloads page to GitHub Pages, and uploads the Windows ZIP to the release that
+matches the version in `game/package.json`.
 
 ## Controls
 
 | Key | Action |
 |---|---|
-| Left / Right arrow | Walk around the ring |
+| Arrow keys | Walk around the ring (Left / Right in the 2D web version) |
 | `A` or `Space` | Strike - fast, chips the health meter |
 | `S` | Grapple - slower, real damage, builds momentum |
 | `D` | Signature move - needs a full momentum meter |
 | `F` | Go for the cover |
 | Any action key while being covered | Mash to kick out |
+| `Esc` or `P` | Pause (3D edition) |
+
+In the 3D edition, gamepads use A / Cross to strike, X / Square to grapple,
+Y / Triangle for the signature move, B / Circle to pin and Start to pause. On
+touchscreens it shows an on-screen stick and buttons.
 
 Moves only connect when you are close enough to your opponent, and a cover will
 not be accepted until her health meter has dropped low enough. First wrestler to
@@ -119,6 +158,8 @@ dotnet user-secrets set "BlockchainConfig:RewardIssuerUrl" "https://your-host/ap
 | `Services/BlockchainService.cs` | Claim validation and A1870 balance reads |
 | `Services/MatchService.cs` | Match sessions, player profiles, reward records |
 | `Services/RosterService.cs` | The wrestler roster |
+| `game/` | Standalone 3D edition (three.js) and its Chromebook / Windows packaging |
+| `docs/index.html` | GitHub Pages downloads page |
 | `Data/GameDbContext.cs` | EF Core context (SQL Server, SQLite fallback) |
 
 ## Disclaimer

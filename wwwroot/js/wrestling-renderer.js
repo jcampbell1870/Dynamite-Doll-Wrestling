@@ -1,6 +1,8 @@
 // Dynamite Doll Wrestling - 2D canvas match renderer.
 // Deliberately styled after the chunky sprite look of late-80s / early-90s NES
 // wrestling games such as WWF WrestleMania Challenge (1990).
+// An optional "ultra" graphics mode renders the same match at the display's
+// native resolution (up to 4K) with arena lighting, shadows and particles.
 (function () {
     const RING_WIDTH = 800;
     const RING_HEIGHT = 460;
@@ -15,6 +17,8 @@
     const MOVE_RANGE = 70;
     const BASE_SPEED = 150;
     const RING_PADDING = 60;
+    const ULTRA_MAX_BACKING_WIDTH = 3840;
+    const ULTRA_MAX_PARTICLES = 400;
 
     const sessions = new WeakMap();
 
@@ -46,8 +50,12 @@
         }
     }
 
-    function createState(difficulty, playerWrestler, opponentWrestler) {
+    function createState(difficulty, playerWrestler, opponentWrestler, ultra) {
         return {
+            ultra: !!ultra,
+            particles: [],
+            shake: 0,
+            flash: 0,
             difficulty: difficulty,
             player: playerWrestler,
             opponent: opponentWrestler,
@@ -96,6 +104,7 @@
         state.playerAnim = anim;
         state.opponentAnim = 'hurt';
         state.animTimer = 0.25;
+        emitImpact(state, state.opponentX, mitigated, anim === 'signature' ? state.player.accentColor : '#fff3b0');
     }
 
     function damageToPlayer(state, damage, callout, anim) {
@@ -105,6 +114,88 @@
         state.opponentAnim = anim;
         state.playerAnim = 'hurt';
         state.animTimer = 0.25;
+        emitImpact(state, state.playerX, mitigated, '#ffd0d0');
+    }
+
+    // Ultra-mode visual effects. They never affect gameplay.
+    function emitImpact(state, x, intensity, color) {
+        if (!state.ultra) {
+            return;
+        }
+
+        const count = Math.min(60, Math.round(6 + intensity * 1.5));
+        for (let i = 0; i < count && state.particles.length < ULTRA_MAX_PARTICLES; i++) {
+            const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.4;
+            const speed = 120 + Math.random() * (180 + intensity * 12);
+            state.particles.push({
+                x: x + (Math.random() - 0.5) * 20,
+                y: MAT_BOTTOM - 70 + (Math.random() - 0.5) * 30,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 0.35 + Math.random() * 0.4,
+                maxLife: 0.75,
+                size: 1.5 + Math.random() * 2.5,
+                color: color || '#fff3b0'
+            });
+        }
+
+        state.shake = Math.min(12, state.shake + intensity * 0.35);
+        state.flash = Math.min(0.6, state.flash + intensity * 0.012);
+    }
+
+    function emitPyro(state) {
+        if (!state.ultra) {
+            return;
+        }
+
+        const colors = ['#ff537d', '#ffd44d', '#ffffff', '#ff8a3d'];
+        [60, RING_WIDTH - 60].forEach(function (originX) {
+            for (let i = 0; i < 70 && state.particles.length < ULTRA_MAX_PARTICLES; i++) {
+                const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.7;
+                const speed = 260 + Math.random() * 260;
+                state.particles.push({
+                    x: originX,
+                    y: MAT_TOP - 70,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 0.8 + Math.random() * 0.8,
+                    maxLife: 1.6,
+                    size: 2 + Math.random() * 2.5,
+                    color: colors[i % colors.length]
+                });
+            }
+        });
+
+        state.flash = 0.8;
+        state.shake = Math.min(12, state.shake + 6);
+    }
+
+    function updateEffects(state, deltaTime) {
+        if (!state.ultra) {
+            return;
+        }
+
+        state.shake = Math.max(0, state.shake - deltaTime * 30);
+        state.flash = Math.max(0, state.flash - deltaTime * 1.8);
+
+        const particles = state.particles;
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.life -= deltaTime;
+            if (p.life <= 0) {
+                particles.splice(i, 1);
+                continue;
+            }
+
+            p.vy += 520 * deltaTime;
+            p.x += p.vx * deltaTime;
+            p.y += p.vy * deltaTime;
+            if (p.y > MAT_BOTTOM + 10) {
+                p.y = MAT_BOTTOM + 10;
+                p.vy *= -0.35;
+                p.vx *= 0.6;
+            }
+        }
     }
 
     function scoreFall(session, playerScored) {
@@ -121,6 +212,7 @@
         state.opponentIsPinning = false;
         state.pinCount = 0;
         state.kickOutProgress = 0;
+        emitPyro(state);
         notifyScore(session);
 
         if (state.playerFalls >= FALLS_TO_WIN) {
@@ -333,6 +425,7 @@
         }
 
         state.elapsed += deltaTime;
+        updateEffects(state, deltaTime);
         state.playerCooldown = Math.max(0, state.playerCooldown - deltaTime);
         state.opponentCooldown = Math.max(0, state.opponentCooldown - deltaTime);
         state.animTimer = Math.max(0, state.animTimer - deltaTime);
@@ -533,18 +626,273 @@
         ctx.fillText(text, RING_WIDTH / 2, RING_HEIGHT - 18);
     }
 
+    // ------------------------------------------------------- ultra drawing
+
+    // Sizes the canvas backing store to the displayed size times the device
+    // pixel ratio (capped at 4K width) and maps it onto the logical ring.
+    function syncUltraResolution(session) {
+        const canvas = session.canvas;
+        const rect = canvas.getBoundingClientRect();
+        const aspect = RING_WIDTH / RING_HEIGHT;
+        let displayWidth = rect.width || RING_WIDTH;
+        if (rect.height > 0 && displayWidth / rect.height > aspect) {
+            displayWidth = rect.height * aspect;
+        }
+
+        const ratio = window.devicePixelRatio || 1;
+        const backingWidth = Math.max(RING_WIDTH, Math.min(ULTRA_MAX_BACKING_WIDTH, Math.round(displayWidth * ratio)));
+        const backingHeight = Math.round(backingWidth / aspect);
+        if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
+            canvas.width = backingWidth;
+            canvas.height = backingHeight;
+        }
+
+        session.ctx.setTransform(backingWidth / RING_WIDTH, 0, 0, backingHeight / RING_HEIGHT, 0, 0);
+    }
+
+    function drawArenaUltra(ctx, state) {
+        const t = state.elapsed;
+        const top = HUD_HEIGHT;
+        const bottom = MAT_TOP - 60;
+
+        const sky = ctx.createLinearGradient(0, top, 0, bottom);
+        sky.addColorStop(0, '#05030a');
+        sky.addColorStop(1, '#1d1030');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, top, RING_WIDTH, bottom - top);
+
+        // Crowd silhouettes, lit from the ring.
+        for (let row = 0; row < 5; row++) {
+            const y = top + 14 + row * 20;
+            const shade = 22 + row * 9;
+            for (let column = 0; column < 46; column++) {
+                const x = column * 17.6 + (row % 2) * 8;
+                const bob = Math.max(0, Math.sin(t * 3 + row * 1.7 + column * 0.9)) * 3;
+                ctx.fillStyle = 'rgb(' + (shade + 8) + ',' + shade + ',' + (shade + 22) + ')';
+                ctx.beginPath();
+                ctx.arc(x + 7, y - bob, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillRect(x + 1, y + 4 - bob, 12, 14);
+            }
+        }
+
+        // Camera flashes in the stands.
+        for (let i = 0; i < 6; i++) {
+            const phase = Math.sin(t * 1.3 + i * 12.9898) * 43758.5453;
+            const seed = phase - Math.floor(phase);
+            if (seed > 0.93) {
+                const fx = (i * 137 + Math.floor(t * 2) * 53) % RING_WIDTH;
+                const fy = top + 10 + ((i * 29 + Math.floor(t * 2) * 17) % (bottom - top - 20));
+                const glow = ctx.createRadialGradient(fx, fy, 0, fx, fy, 14);
+                glow.addColorStop(0, 'rgba(255,255,255,0.95)');
+                glow.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = glow;
+                ctx.fillRect(fx - 14, fy - 14, 28, 28);
+            }
+        }
+
+        // Sweeping light beams from the lighting truss.
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const beams = [
+            { x: 140, color: '255,83,125' },
+            { x: RING_WIDTH / 2, color: '255,240,210' },
+            { x: RING_WIDTH - 140, color: '90,160,255' }
+        ];
+        beams.forEach(function (beam, index) {
+            const sway = Math.sin(t * 0.6 + index * 2.1) * 120;
+            const beamGradient = ctx.createLinearGradient(beam.x, top, beam.x + sway, MAT_BOTTOM);
+            beamGradient.addColorStop(0, 'rgba(' + beam.color + ',0.28)');
+            beamGradient.addColorStop(1, 'rgba(' + beam.color + ',0)');
+            ctx.fillStyle = beamGradient;
+            ctx.beginPath();
+            ctx.moveTo(beam.x - 8, top);
+            ctx.lineTo(beam.x + 8, top);
+            ctx.lineTo(beam.x + sway + 90, MAT_BOTTOM);
+            ctx.lineTo(beam.x + sway - 90, MAT_BOTTOM);
+            ctx.closePath();
+            ctx.fill();
+        });
+        ctx.restore();
+    }
+
+    function drawRingUltra(ctx, state) {
+        const apron = ctx.createLinearGradient(0, MAT_TOP - 60, 0, RING_HEIGHT);
+        apron.addColorStop(0, '#24508f');
+        apron.addColorStop(1, '#0b1a33');
+        ctx.fillStyle = apron;
+        ctx.fillRect(0, MAT_TOP - 60, RING_WIDTH, RING_HEIGHT - (MAT_TOP - 60));
+
+        const matX = 40;
+        const matY = MAT_TOP - 20;
+        const matW = RING_WIDTH - 80;
+        const matH = MAT_BOTTOM - MAT_TOP + 40;
+        const mat = ctx.createLinearGradient(0, matY, 0, matY + matH);
+        mat.addColorStop(0, '#bdb7a8');
+        mat.addColorStop(1, '#e9e3d4');
+        ctx.fillStyle = mat;
+        ctx.fillRect(matX, matY, matW, matH);
+
+        // Overhead key light pooling on the canvas.
+        const pool = ctx.createRadialGradient(RING_WIDTH / 2, MAT_TOP + 70, 20, RING_WIDTH / 2, MAT_TOP + 70, matW * 0.6);
+        pool.addColorStop(0, 'rgba(255,250,235,0.45)');
+        pool.addColorStop(1, 'rgba(0,0,0,0.25)');
+        ctx.fillStyle = pool;
+        ctx.fillRect(matX, matY, matW, matH);
+
+        ctx.fillStyle = 'rgba(192,57,43,0.9)';
+        ctx.fillRect(RING_WIDTH / 2 - 90, MAT_TOP + 60, 180, 10);
+        ctx.fillStyle = 'rgba(44,62,80,0.85)';
+        ctx.font = 'bold 16px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('DYNAMITE DOLL WRESTLING', RING_WIDTH / 2, MAT_TOP + 52);
+
+        // Steel ring posts with padded turnbuckles.
+        [28, RING_WIDTH - 50].forEach(function (postX) {
+            const steel = ctx.createLinearGradient(postX, 0, postX + 22, 0);
+            steel.addColorStop(0, '#5d6670');
+            steel.addColorStop(0.45, '#e3e8ee');
+            steel.addColorStop(1, '#3a4048');
+            ctx.fillStyle = steel;
+            ctx.fillRect(postX + 4, MAT_TOP - 74, 14, 140);
+            for (let i = 0; i < 3; i++) {
+                const pad = ctx.createLinearGradient(postX, 0, postX + 22, 0);
+                pad.addColorStop(0, '#5c1010');
+                pad.addColorStop(0.5, '#c62828');
+                pad.addColorStop(1, '#4a0c0c');
+                ctx.fillStyle = pad;
+                ctx.fillRect(postX, MAT_TOP - 68 + i * 28, 22, 16);
+            }
+        });
+
+        // Ropes with a soft glow.
+        const ropeColors = ['#f4d35e', '#ee964b', '#f95738'];
+        ctx.save();
+        for (let i = 0; i < 3; i++) {
+            const y = MAT_TOP - 62 + i * 28 + 2.5 + Math.sin(state.elapsed * 4 + i) * state.shake * 0.15;
+            ctx.strokeStyle = ropeColors[i];
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.shadowColor = ropeColors[i];
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.moveTo(40, y);
+            ctx.quadraticCurveTo(RING_WIDTH / 2, y + 3, RING_WIDTH - 40, y);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawShadowUltra(ctx, x, isPinned) {
+        const width = isPinned ? 70 : 40;
+        const shadow = ctx.createRadialGradient(x, MAT_BOTTOM, 2, x, MAT_BOTTOM, width);
+        shadow.addColorStop(0, 'rgba(0,0,0,0.55)');
+        shadow.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.save();
+        ctx.translate(x, MAT_BOTTOM);
+        ctx.scale(1, 0.22);
+        ctx.translate(-x, -MAT_BOTTOM);
+        ctx.fillStyle = shadow;
+        ctx.beginPath();
+        ctx.arc(x, MAT_BOTTOM, width, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawWrestlerUltra(ctx, wrestler, x, facing, anim, isPinned) {
+        drawShadowUltra(ctx, x, isPinned);
+        ctx.save();
+        if (anim === 'signature') {
+            ctx.shadowColor = wrestler.accentColor || '#ffd44d';
+            ctx.shadowBlur = 24;
+        } else {
+            ctx.shadowColor = 'rgba(255,240,220,0.35)';
+            ctx.shadowBlur = 6;
+        }
+
+        drawWrestler(ctx, wrestler, x, MAT_BOTTOM, facing, anim, isPinned);
+        ctx.restore();
+    }
+
+    function drawParticlesUltra(ctx, state) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
+        state.particles.forEach(function (p) {
+            ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = p.size;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - p.vx * 0.025, p.y - p.vy * 0.025);
+            ctx.stroke();
+        });
+        ctx.restore();
+    }
+
+    function drawPostUltra(ctx, state, session) {
+        const vignette = ctx.createRadialGradient(
+            RING_WIDTH / 2, RING_HEIGHT * 0.6, RING_HEIGHT * 0.35,
+            RING_WIDTH / 2, RING_HEIGHT * 0.6, RING_WIDTH * 0.75);
+        vignette.addColorStop(0, 'rgba(0,0,0,0)');
+        vignette.addColorStop(1, 'rgba(0,0,0,0.55)');
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, HUD_HEIGHT, RING_WIDTH, RING_HEIGHT - HUD_HEIGHT);
+
+        if (state.flash > 0) {
+            ctx.fillStyle = 'rgba(255,245,230,' + (state.flash * 0.35) + ')';
+            ctx.fillRect(0, HUD_HEIGHT, RING_WIDTH, RING_HEIGHT - HUD_HEIGHT);
+        }
+
+        if (session.fps) {
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillText('ULTRA  ' + session.canvas.width + 'x' + session.canvas.height + '  ' + Math.round(session.fps) + ' FPS',
+                RING_WIDTH - 8, HUD_HEIGHT + 14);
+        }
+    }
+
+    function renderUltraScene(session) {
+        const ctx = session.ctx;
+        const state = session.state;
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.save();
+        if (state.shake > 0) {
+            ctx.translate((Math.random() - 0.5) * state.shake, (Math.random() - 0.5) * state.shake);
+        }
+
+        drawArenaUltra(ctx, state);
+        drawRingUltra(ctx, state);
+
+        const playerFacing = state.playerX <= state.opponentX ? 1 : -1;
+        drawWrestlerUltra(ctx, state.player, state.playerX, playerFacing, state.playerAnim, state.opponentIsPinning);
+        drawWrestlerUltra(ctx, state.opponent, state.opponentX, -playerFacing, state.opponentAnim, state.playerIsPinning);
+        drawParticlesUltra(ctx, state);
+        ctx.restore();
+
+        drawPostUltra(ctx, state, session);
+    }
+
     function render(session) {
         const ctx = session.ctx;
         const state = session.state;
 
-        ctx.imageSmoothingEnabled = false;
-        ctx.clearRect(0, 0, RING_WIDTH, RING_HEIGHT);
-        drawCrowd(ctx, state.elapsed);
-        drawRing(ctx);
+        if (state.ultra) {
+            syncUltraResolution(session);
+            ctx.clearRect(0, 0, RING_WIDTH, RING_HEIGHT);
+            renderUltraScene(session);
+        } else {
+            ctx.imageSmoothingEnabled = false;
+            ctx.clearRect(0, 0, RING_WIDTH, RING_HEIGHT);
+            drawCrowd(ctx, state.elapsed);
+            drawRing(ctx);
 
-        const playerFacing = state.playerX <= state.opponentX ? 1 : -1;
-        drawWrestler(ctx, state.player, state.playerX, MAT_BOTTOM, playerFacing, state.playerAnim, state.opponentIsPinning);
-        drawWrestler(ctx, state.opponent, state.opponentX, MAT_BOTTOM, -playerFacing, state.opponentAnim, state.playerIsPinning);
+            const playerFacing = state.playerX <= state.opponentX ? 1 : -1;
+            drawWrestler(ctx, state.player, state.playerX, MAT_BOTTOM, playerFacing, state.playerAnim, state.opponentIsPinning);
+            drawWrestler(ctx, state.opponent, state.opponentX, MAT_BOTTOM, -playerFacing, state.opponentAnim, state.playerIsPinning);
+        }
 
         drawHud(ctx, state);
         drawCallout(ctx, state);
@@ -580,13 +928,23 @@
         const deltaTime = Math.min(0.05, (timestamp - last) / 1000);
         session.lastTimestamp = timestamp;
 
+        const state = session.state;
+        if (state.ultra && timestamp > last) {
+            const instant = 1000 / (timestamp - last);
+            session.fps = session.fps ? session.fps * 0.9 + instant * 0.1 : instant;
+        }
+
         if (session.running) {
             update(session, deltaTime);
+        } else if (state.matchOver) {
+            // Let the final pyro finish after the bout is decided.
+            updateEffects(state, deltaTime);
         }
 
         render(session);
 
-        if (!session.state.matchOver) {
+        const effectsActive = state.ultra && (state.particles.length > 0 || state.flash > 0 || state.shake > 0);
+        if (!state.matchOver || effectsActive) {
             session.frameHandle = requestAnimationFrame(function (next) { loop(session, next); });
         }
     }
@@ -645,16 +1003,26 @@
     }
 
     window.wrestlingRenderer = {
-        startMatch: function (canvas, difficulty, playerWrestler, opponentWrestler, dotNetRef, token) {
+        // options.quality: 'classic' (default) or 'ultra'.
+        startMatch: function (canvas, difficulty, playerWrestler, opponentWrestler, dotNetRef, token, options) {
             if (!canvas) {
                 return;
             }
 
             this.disposeMatch(canvas);
 
+            const ultra = !!options && options.quality === 'ultra';
+            const ctx = canvas.getContext('2d');
+            if (!ultra && (canvas.width !== RING_WIDTH || canvas.height !== RING_HEIGHT)) {
+                canvas.width = RING_WIDTH;
+                canvas.height = RING_HEIGHT;
+            }
+
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+
             const session = {
                 canvas: canvas,
-                ctx: canvas.getContext('2d'),
+                ctx: ctx,
                 dotNetRef: dotNetRef,
                 token: token,
                 running: true,
@@ -662,7 +1030,8 @@
                 completionSent: false,
                 lastTimestamp: 0,
                 keys: { left: false, right: false },
-                state: createState(difficulty, playerWrestler, opponentWrestler)
+                fps: 0,
+                state: createState(difficulty, playerWrestler, opponentWrestler, ultra)
             };
 
             sessions.set(canvas, session);
@@ -720,6 +1089,7 @@
             this.disposeMatch(canvas);
             if (canvas) {
                 const ctx = canvas.getContext('2d');
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
         },
