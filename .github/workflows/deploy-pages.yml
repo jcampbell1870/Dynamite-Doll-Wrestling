@@ -52,12 +52,18 @@ jobs:
           sed -e 's#Browser edition &mdash; works on Chromebooks and any modern browser. <a href="./">Back to downloads</a>#Windows Ultra Edition \&mdash; native resolution up to 4K.#' \
               -e 's#data-default="classic"#data-default="ultra"#' docs/play.html > _ultra/index.html
           grep -q 'data-default="ultra"' _ultra/index.html
+          grep -q 'Windows Ultra Edition' _ultra/index.html
           cp wwwroot/js/wrestling-renderer.js _ultra/js/wrestling-renderer.js
           printf '%s\r\n' \
             '@echo off' \
             'rem Opens the Ultra Edition full screen in Microsoft Edge (press F11 to leave full screen).' \
+            'set "EDGE_KEY=SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe"' \
+            'reg query "HKLM\%EDGE_KEY%" >nul 2>&1 || reg query "HKCU\%EDGE_KEY%" >nul 2>&1' \
+            'if errorlevel 1 goto fallback' \
             'start "" msedge --start-fullscreen "%~dp0index.html"' \
-            'if errorlevel 1 start "" "%~dp0index.html"' \
+            'goto :eof' \
+            ':fallback' \
+            'start "" "%~dp0index.html"' \
             > "_ultra/Play Dynamite Doll Wrestling Ultra.cmd"
           cat > _ultra/README.txt <<'EOF'
           Dynamite Doll Wrestling - Windows Ultra Edition
