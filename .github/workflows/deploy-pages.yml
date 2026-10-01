@@ -33,10 +33,23 @@ jobs:
 
       - name: Assemble GitHub Pages site
         run: |
-          mkdir -p _site/downloads _site/js
+          mkdir -p _site/downloads _site/js _chromebook/js
           cp docs/index.html _site/index.html
           cp docs/play.html _site/play.html
           cp wwwroot/js/wrestling-renderer.js _site/js/wrestling-renderer.js
+          sed 's#<a href="./">Back to downloads</a>#Offline Chromebook edition#' docs/play.html > _chromebook/index.html
+          cp wwwroot/js/wrestling-renderer.js _chromebook/js/wrestling-renderer.js
+          cat > _chromebook/README.txt <<'EOF'
+          Dynamite Doll Wrestling for Chromebook
+
+          1. Extract this ZIP file in the Chromebook Files app.
+          2. Open index.html in Chrome to play offline.
+
+          The game runs locally in your browser and does not need an installation
+          or internet connection. Keyboard and on-screen controls are available.
+          MetaMask rewards are not available in this browser edition.
+          EOF
+          (cd _chromebook && zip -qr ../_site/downloads/Dynamite-Doll-Wrestling-chromebook.zip .)
           cat > publish/appsettings.Production.json <<'EOF'
           {
             "ConnectionStrings": {
@@ -59,6 +72,8 @@ jobs:
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
