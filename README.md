@@ -34,9 +34,7 @@ dotnet run
 Then open the URL printed in the console (for example `https://localhost:7229`)
 and go to **Match**.
 
-## Play in the browser (Chromebook friendly)
-
-A browser edition is published on [GitHub Pages](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/play.html). It runs entirely in the browser, so it works on Chromebooks and needs no install. Use the keyboard or the on-screen buttons. MetaMask rewards are not available in the browser edition.
+## Chromebook download
 
 For offline play, download the Chromebook ZIP from the [GitHub Pages download page](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/), extract it in the Chromebook Files app, and open `index.html` in Chrome.
 
