@@ -1,0 +1,23 @@
+{
+  "name": "dynamite-doll-wrestling-3d",
+  "productName": "Dynamite Doll Wrestling",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Dynamite Doll Wrestling - 3D all-female wrestling game.",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.js",
+    "start": "npm run build && electron .",
+    "package:win": "npm run build && node scripts/package-win.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.5.1",
+    "esbuild": "0.28.2"
+  }
+}
