@@ -38,7 +38,9 @@ and go to **Match**.
 
 A browser edition is published on [GitHub Pages](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/play.html). It runs entirely in the browser, so it works on Chromebooks and needs no install. Use the keyboard or the on-screen buttons. MetaMask rewards are not available in the browser edition.
 
-GitHub Pages must be enabled for the repository: go to **Settings → Pages** and set **Source** to **GitHub Actions**. Then re-run the *Deploy downloadable game to GitHub Pages* workflow.
+For offline play, download the Chromebook ZIP from the [GitHub Pages download page](https://jcampbell1870.github.io/Dynamite-Doll-Wrestling/), extract it in the Chromebook Files app, and open `index.html` in Chrome.
+
+The deployment workflow enables GitHub Pages and publishes the downloads when it runs on `main` or `master`.
 
 ## Download for Windows
 
