@@ -24,6 +24,7 @@ else
                 <th>Wallet</th>
                 <th>Matches</th>
                 <th>Wins</th>
+                <th>Championship belts</th>
                 <th>Losses</th>
                 <th>Win rate</th>
                 <th>A1870 earned</th>
@@ -37,6 +38,7 @@ else
                     <td>@(index + 1)</td>
                     <td>@FormatAddress(leader.WalletAddress)</td>
                     <td>@leader.TotalMatches</td>
+                    <td>@leader.TotalWins</td>
                     <td>@leader.TotalWins</td>
                     <td>@leader.TotalLosses</td>
                     <td>@leader.WinRate.ToString("F1")%</td>

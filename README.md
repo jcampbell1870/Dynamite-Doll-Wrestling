@@ -96,7 +96,8 @@ touchscreens it shows an on-screen stick and buttons.
 
 Moves only connect when you are close enough to your opponent, and a cover will
 not be accepted until her health meter has dropped low enough. First wrestler to
-two falls wins the bout.
+two falls wins the bout. Each bout victory earns a career championship belt,
+shown in your career stats and on the leaderboard.
 
 ## Roster
 

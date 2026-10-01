@@ -21,6 +21,7 @@
                     <p>Wins: @playerProfile.TotalWins</p>
                     <p>Losses: @playerProfile.TotalLosses</p>
                     <p>Win rate: @playerProfile.WinRate.ToString("F1")%</p>
+                    <p>Championship belts: @playerProfile.TotalWins</p>
                     <p>Rewards: @playerProfile.TotalRewardsEarned.ToString("F2") A1870</p>
                 </div>
             }
@@ -125,6 +126,18 @@
             <h4>@PlayerWrestler.Name vs @OpponentWrestler.Name</h4>
             <div class="mb-2 small">Falls: @playerFalls - @opponentFalls (best of 3)</div>
             <canvas @ref="canvasRef" width="800" height="460" class="match-canvas"></canvas>
+            @if (matchOver && playerFalls > opponentFalls)
+            {
+                <div class="championship-award" role="status" aria-live="polite">
+                    <span class="championship-belt" aria-label="Championship belt">
+                        <span class="championship-buckle">DDW</span>
+                    </span>
+                    <div>
+                        <strong>Championship belt awarded!</strong>
+                        <div class="small">You now have @(playerProfile?.TotalWins ?? 0) career belts.</div>
+                    </div>
+                </div>
+            }
         </div>
 
         <div class="ddw-panel">
@@ -374,6 +387,7 @@
             if (currentSessionId.HasValue)
             {
                 await MatchService.EndMatchSessionAsync(currentSessionId.Value, playerFalls, opponentFalls);
+                playerProfile = await MatchService.GetOrCreatePlayerAsync(currentWalletState.Address!);
                 await ClaimRewardAsync();
             }
         }
