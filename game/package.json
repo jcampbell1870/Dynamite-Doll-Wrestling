@@ -1,9 +1,9 @@
 {
-  "name": "dynamite-doll-wrestling-3d",
-  "productName": "Dynamite Doll Wrestling",
+  "name": "crypto-wrestling-3d",
+  "productName": "Crypto Wrestling",
   "version": "2.0.0",
   "private": true,
-  "description": "Dynamite Doll Wrestling - 3D all-female wrestling game.",
+  "description": "Crypto Wrestling - 3D all-female wrestling game with an original fictional roster.",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
